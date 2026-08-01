@@ -124,3 +124,32 @@ class IronBciSource extends BleSourceProvider {
     return samples;
   }
 }
+
+/// PiEEG-XR EEG source provider (8 or 16 channel).
+///
+/// PiEEG-XR retail units ship the same ADS1299 hardware and EAREEG firmware
+/// as [IronBciSource] — identical BLE service/characteristic and 24-bit wire
+/// format — but advertise under the "PiEEG_XR" brand. In the PiEEG cloud app
+/// it is surfaced as its own device, so it gets a dedicated tile here too. The
+/// full decoder is inherited from [IronBciSource]; only the identity/branding
+/// differs.
+class PiEegXrSource extends IronBciSource {
+  PiEegXrSource({super.channels = 8});
+
+  @override
+  String get id => channels == 16 ? 'pieeg_xr16' : 'pieeg_xr';
+
+  @override
+  String get displayName => 'PiEEG-XR $channels-Ch';
+
+  @override
+  String get description =>
+      'PiEEG-XR — wearable ADS1299 EEG, $channels channels, 24-bit, 250 SPS. '
+      'Same firmware as IronBCI, branded for the XR face/head interface.';
+
+  @override
+  IconData get icon => Icons.visibility;
+
+  @override
+  List<String> get advertisedNames => const ['PiEEG', 'PIEEG'];
+}

@@ -24,6 +24,8 @@ void registerAllSources(BleSourceRegistry registry) {
   registry.register(Ads1299Source());
   registry.register(IronBciSource()); // IronBCI-8 (ADS1299)
   registry.register(IronBciSource(channels: 16)); // IronBCI-16 (dual ADS1299)
+  registry.register(PiEegXrSource()); // PiEEG-XR 8-ch (EAREEG firmware)
+  registry.register(PiEegXrSource(channels: 16)); // PiEEG-XR 16-ch
   registry.register(Octopus16Source()); // Octopus 16 (ESP32-C3 + ADS131M08)
 
   // ── Community sources ───────────────────────────────────────────────
