@@ -2,7 +2,7 @@
 
 [![CI — Download Build APK](https://github.com/the-governor-hq/bodyPress-flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/the-governor-hq/bodyPress-flutter/actions/workflows/ci.yml)
 ![Flutter](https://img.shields.io/badge/Flutter-3.9.2%2B-blue?logo=flutter)
-![Version](https://img.shields.io/badge/version-1.0.20-informational)
+![Version](https://img.shields.io/badge/version-1.0.24-informational)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Your body writes a journal every day — BodyPress reads it.
@@ -80,17 +80,17 @@ Under the hood the app treats the human body as an observable system: collect ob
 
 ## Data Sources
 
-| Domain             | Sensor / API                        | What's read                                                                                                                                                       |
-| ------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Movement**       | Health Connect / HealthKit          | Steps, distance, calories, workouts                                                                                                                               |
-| **Cardiovascular** | Optical HR sensor (OS health store) | Average HR, resting HR, HRV (SDNN)                                                                                                                                |
-| **Cardiovascular** | BLE HR strap (direct, 0x180D)       | Continuous BPM session + RR intervals → RMSSD / SDNN / mean-RR; full `BleHrSession` stored per capture                                                            |
-| **Signal sources** | BLE plugin system (ADS1299, …)      | Multi-channel streaming from community hardware — 4 view modes (waveform, spectral, decoding, monitoring). See [CONTRIBUTING_SOURCES.md](CONTRIBUTING_SOURCES.md) |
-| **Sleep**          | Device sleep tracking               | Duration, phases                                                                                                                                                  |
-| **Environment**    | GPS → ambient-scan API              | Temperature, humidity, AQI, UV, pressure, wind, conditions                                                                                                        |
-| **Schedule**       | Device calendar (CalDAV)            | Today's events                                                                                                                                                    |
-| **Location**       | GPS (Geolocator)                    | Coordinates — ephemeral, never stored                                                                                                                             |
-| **Nutrition**      | Barcode → Open Food Facts API v2    | Product name, Nutri-Score, NOVA group, macros per 100 g / per serving                                                                                             |
+| Domain             | Sensor / API                                                 | What's read                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Movement**       | Health Connect / HealthKit                                   | Steps, distance, calories, workouts                                                                                                                               |
+| **Cardiovascular** | Optical HR sensor (OS health store)                          | Average HR, resting HR, HRV (SDNN)                                                                                                                                |
+| **Cardiovascular** | BLE HR strap (direct, 0x180D)                                | Continuous BPM session + RR intervals → RMSSD / SDNN / mean-RR; full `BleHrSession` stored per capture                                                            |
+| **Signal sources** | BLE plugin system (ADS1299, PiEEG-XR, IronBCI, Octopus16, …) | Multi-channel streaming from community hardware — 4 view modes (waveform, spectral, decoding, monitoring). See [CONTRIBUTING_SOURCES.md](CONTRIBUTING_SOURCES.md) |
+| **Sleep**          | Device sleep tracking                                        | Duration, phases                                                                                                                                                  |
+| **Environment**    | GPS → ambient-scan API                                       | Temperature, humidity, AQI, UV, pressure, wind, conditions                                                                                                        |
+| **Schedule**       | Device calendar (CalDAV)                                     | Today's events                                                                                                                                                    |
+| **Location**       | GPS (Geolocator)                                             | Coordinates — ephemeral, never stored                                                                                                                             |
+| **Nutrition**      | Barcode → Open Food Facts API v2                             | Product name, Nutri-Score, NOVA group, macros per 100 g / per serving                                                                                             |
 
 > **Privacy:** GPS is read once to fetch environmental data, then discarded. No location history is recorded or transmitted. Health data is read-only — the app never writes to HealthKit or Health Connect.
 
@@ -347,7 +347,7 @@ All providers speak the same **OpenAI chat completions** protocol, so no adapter
 | 6   | **Environment**    | `/environment`       | Expanded environmental data view.                                                                                                                                                                                                                                                                                                |
 | 7   | **AI Services**    | `/ai-settings`       | Choose AI provider, enter API key, set model, test connection. Supports 11 providers including local inference.                                                                                                                                                                                                                  |
 | 8   | **Debug**          | `/debug`             | Raw sensor readouts — health metrics, GPS, ambient data, calendar events.                                                                                                                                                                                                                                                        |
-| 9   | **Source Browser** | `/sources`           | Browse all registered BLE signal sources (ADS1299, community boards). Each card shows channel count, sample rate, and hardware name.                                                                                                                                                                                             |
+| 9   | **Source Browser** | `/sources`           | Browse all registered BLE signal sources (ADS1299, PiEEG-XR, IronBCI, Octopus16, community boards). Each card shows channel count, sample rate, and hardware name.                                                                                                                                                               |
 | 10  | **Live Signal**    | `/sources/:sourceId` | Full-screen multi-channel signal monitor: scan → pick device → connect → stream. Four view modes via popup menu — **Waveform** (time-domain), **Spectral** (FFT spectrum/waterfall/bands), **Decoding** (demo neural state classifier), **Monitor** (demo signal quality dashboard). Channel toggle chips, solo mode, recording. |
 
 ---
@@ -463,6 +463,8 @@ These are enforced by `CODING_PRINCIPLES.md`.
 - [x] `nutrition_logs` table (schema v10) for longitudinal food-tracking queries
 - [x] Extensible BLE signal source plugin system — abstract `BleSourceProvider`, `BleSourceRegistry`, generic scan/connect/stream engine
 - [x] ADS1299 8-channel EEG source (EAREEG boards) — first community source implementation
+- [x] Additional signal source providers — PiEEG-XR, IronBCI, Octopus16
+- [x] Live signal chart sample-rate & latency metrics
 - [x] Multi-channel real-time signal chart (`LiveSignalChart`) — per-channel autoscale, toggle/solo, glow aesthetic
 - [x] Source Browser + Live Signal screens (`/sources`, `/sources/:sourceId`)
 - [x] `SignalSession` model with JSON persistence in `CaptureEntry` (schema v11)
