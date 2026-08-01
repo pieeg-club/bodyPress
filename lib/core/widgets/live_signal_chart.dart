@@ -53,6 +53,10 @@ class LiveSignalChart extends StatefulWidget {
   /// Number of samples to keep in the ring buffer per channel.
   final int bufferSize;
 
+  /// Nominal sample rate (Hz) advertised by the source, shown as a fallback
+  /// until enough samples arrive to measure the live rate.
+  final double? sampleRateHz;
+
   const LiveSignalChart({
     super.key,
     required this.signalStream,
@@ -61,6 +65,7 @@ class LiveSignalChart extends StatefulWidget {
     this.sourceName,
     this.onDisconnect,
     this.bufferSize = 250,
+    this.sampleRateHz,
   });
 
   @override
@@ -77,6 +82,15 @@ class _LiveSignalChartState extends State<LiveSignalChart>
 
   int _sampleCount = 0;
   bool _connected = false;
+
+  /// Measured throughput (Hz), derived from arrival timestamps over ~1 s.
+  double _measuredRateHz = 0;
+
+  /// Latency (ms) between a sample's timestamp and its arrival.
+  int _latencyMs = 0;
+
+  /// Rolling window of sample arrival times used to measure the live rate.
+  final ListQueue<DateTime> _rateWindow = ListQueue<DateTime>();
 
   late final Ticker _ticker;
   StreamSubscription<SignalSample>? _sub;
@@ -115,6 +129,19 @@ class _LiveSignalChartState extends State<LiveSignalChart>
   void _onSample(SignalSample sample) {
     _connected = true;
     _sampleCount++;
+
+    // Latency: how stale the sample is by the time it reaches the UI.
+    final now = DateTime.now();
+    _latencyMs = now.difference(sample.time).inMilliseconds.abs();
+
+    // Measured rate: count arrivals within a 1 s sliding window.
+    _rateWindow.addLast(now);
+    while (_rateWindow.isNotEmpty &&
+        now.difference(_rateWindow.first).inMilliseconds > 1000) {
+      _rateWindow.removeFirst();
+    }
+    _measuredRateHz = _rateWindow.length.toDouble();
+
     for (var i = 0; i < sample.channels.length && i < _buffers.length; i++) {
       final v = sample.channels[i];
       _buffers[i].removeFirst();
@@ -227,15 +254,7 @@ class _LiveSignalChartState extends State<LiveSignalChart>
               ],
             ),
           ),
-          Text(
-            '$_sampleCount smp',
-            style: GoogleFonts.robotoMono(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.glow,
-              letterSpacing: 1,
-            ),
-          ),
+          _buildMetrics(),
           const SizedBox(width: 12),
           if (widget.onDisconnect != null)
             GestureDetector(
@@ -249,6 +268,70 @@ class _LiveSignalChartState extends State<LiveSignalChart>
         ],
       ),
     );
+  }
+
+  // ── Header metrics ────────────────────────────────────────────────────
+
+  /// LIVE pill + rate / samples / latency read-outs.
+  Widget _buildMetrics() {
+    final rate = _measuredRateHz > 0
+        ? _measuredRateHz
+        : (widget.sampleRateHz ?? 0);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // LIVE / OFFLINE pill.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: (_connected ? AppTheme.glow : Colors.red).withValues(
+              alpha: 0.12,
+            ),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            _connected ? 'LIVE' : 'OFFLINE',
+            style: GoogleFonts.robotoMono(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: _connected ? AppTheme.glow : Colors.red,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _metric('${rate.toStringAsFixed(0)} Hz'),
+        const SizedBox(width: 10),
+        _metric('${_formatCount(_sampleCount)} samples'),
+        const SizedBox(width: 10),
+        _metric('$_latencyMs ms'),
+      ],
+    );
+  }
+
+  /// A single compact monospace read-out.
+  Widget _metric(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.robotoMono(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.glow.withValues(alpha: 0.85),
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  /// Group thousands with commas, e.g. 1861 → "1,861".
+  String _formatCount(int value) {
+    final s = value.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   // ── Channel toggle chips ──────────────────────────────────────────────

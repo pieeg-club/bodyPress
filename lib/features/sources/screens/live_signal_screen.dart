@@ -185,9 +185,9 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save session: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save session: $e')));
       }
     }
   }
@@ -200,23 +200,31 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
     final chCount = _provider!.channelCount;
     final hz = _provider!.sampleRateHz;
 
-    // Emit synthetic samples at ~60 Hz (fast enough for smooth chart).
-    _demoTimer = Timer.periodic(Duration(milliseconds: (1000 / 60).round()), (
-      _,
-    ) {
-      _demoTick++;
-      final t = _demoTick / hz;
-      final channels = List<double>.generate(chCount, (ch) {
-        // Blend of frequencies — each channel gets a slightly different mix.
-        final base = 10.0 * sin(2 * pi * (3 + ch * 0.7) * t);
-        final alpha = 8.0 * sin(2 * pi * (10 + ch) * t) * (ch.isEven ? 1 : 0.6);
-        final noise = (rng.nextDouble() - 0.5) * 4;
-        return double.parse((base + alpha + noise).toStringAsFixed(2));
-      });
-      if (!_demoSignalController.isClosed) {
-        _demoSignalController.add(
-          SignalSample(time: DateTime.now(), channels: channels),
-        );
+    // Drive the timer at the device's real sample period (e.g. 250 Hz → 4 ms,
+    // 500 Hz → 2 ms). A stopwatch corrects for timer jitter so the measured
+    // throughput lands on [hz] exactly — any samples the timer misses are
+    // caught up on the next fire.
+    final periodUs = (1000000 / hz).round();
+    final clock = Stopwatch()..start();
+    _demoTimer = Timer.periodic(Duration(microseconds: periodUs), (_) {
+      // Total samples that should have been emitted by now.
+      final due = (clock.elapsedMicroseconds * hz / 1000000).floor();
+      while (_demoTick < due) {
+        _demoTick++;
+        final t = _demoTick / hz;
+        final channels = List<double>.generate(chCount, (ch) {
+          // Blend of frequencies — each channel gets a slightly different mix.
+          final base = 10.0 * sin(2 * pi * (3 + ch * 0.7) * t);
+          final alpha =
+              8.0 * sin(2 * pi * (10 + ch) * t) * (ch.isEven ? 1 : 0.6);
+          final noise = (rng.nextDouble() - 0.5) * 4;
+          return double.parse((base + alpha + noise).toStringAsFixed(2));
+        });
+        if (!_demoSignalController.isClosed) {
+          _demoSignalController.add(
+            SignalSample(time: DateTime.now(), channels: channels),
+          );
+        }
       }
     });
     setState(() {
@@ -639,6 +647,7 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
           channelDescriptors: descriptors,
           deviceName: deviceName,
           sourceName: sourceName,
+          sampleRateHz: _provider!.sampleRateHz,
           onDisconnect: _isDemoMode ? _stopDemo : _disconnect,
         );
       case SignalViewMode.spectral:
