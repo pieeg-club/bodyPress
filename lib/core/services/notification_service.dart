@@ -37,6 +37,11 @@ class NotificationService {
   static const eveningHour = 20;
   static const eveningMinute = 0;
 
+  /// Monochrome notification small icon (white silhouette on transparent).
+  /// Android tints this; a full-colour launcher icon would render as a white
+  /// square, so a dedicated drawable is required.
+  static const _androidIcon = '@drawable/ic_notification';
+
   // ── Channel IDs ─────────────────────────────────────────────────────────
 
   static const _dailyChannelId = 'bodypress_daily_reminder';
@@ -184,7 +189,7 @@ class NotificationService {
   Future<void> initialize() async {
     if (_initialised) return;
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings(_androidIcon);
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -358,6 +363,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          icon: _androidIcon,
           styleInformation: BigTextStyleInformation(msg.body),
         ),
         iOS: const DarwinNotificationDetails(
@@ -394,6 +400,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          icon: _androidIcon,
           styleInformation: BigTextStyleInformation(content.body),
         ),
         iOS: const DarwinNotificationDetails(
@@ -424,6 +431,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          icon: _androidIcon,
           styleInformation: BigTextStyleInformation(msg.body),
         ),
         iOS: const DarwinNotificationDetails(

@@ -36,6 +36,11 @@ class ForegroundTaskService {
         showWhen: false,
         showBadge: false,
         onlyAlertOnce: true,
+        iconData: const NotificationIconData(
+          resType: ResourceType.drawable,
+          resPrefix: ResourcePrefix.ic,
+          name: 'notification',
+        ),
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
