@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import 'core/router/app_router.dart';
@@ -12,6 +14,12 @@ import 'core/theme/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SQLite for desktop platforms
+  if (Platform.isWindows || Platform.isLinux) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
 
   // Timezone data is needed for scheduled notifications.
   tz.initializeTimeZones();
@@ -33,63 +41,69 @@ void main() async {
         .init()
         .timeout(const Duration(seconds: 3), onTimeout: () {});
 
-    // Initialise background capture scheduler (re-registers periodic task
-    // if the user previously enabled it).
-    final bgService = container.read(backgroundCaptureServiceProvider);
-    await bgService.initialize().timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => debugPrint('[main] bgService.initialize() timed out'),
-    );
+    // Mobile-specific initialization (Android/iOS only)
+    if (Platform.isAndroid || Platform.isIOS) {
+      // Initialise background capture scheduler (re-registers periodic task
+      // if the user previously enabled it).
+      final bgService = container.read(backgroundCaptureServiceProvider);
+      await bgService.initialize().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => debugPrint('[main] bgService.initialize() timed out'),
+      );
 
-    // Show onboarding only when permissions are missing.
-    // Always check actual OS permissions so that revoking them
-    // re-surfaces the onboarding flow on next launch.
-    final db = container.read(localDbServiceProvider);
-    final permService = container.read(permissionServiceProvider);
-    final healthService = container.read(healthServiceProvider);
-    final criticalPerms = await permService
-        .areCriticalPermissionsGranted()
-        .timeout(const Duration(seconds: 3), onTimeout: () => false);
-    final healthPerms = await healthService.hasPermissionsProbe().timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => false,
-    );
-    skipOnboarding = criticalPerms && healthPerms;
-    // Keep the DB flag in sync so other parts of the app can read it.
-    await db.setSetting('skip_onboarding', skipOnboarding ? 'true' : 'false');
+      // Show onboarding only when permissions are missing.
+      // Always check actual OS permissions so that revoking them
+      // re-surfaces the onboarding flow on next launch.
+      final db = container.read(localDbServiceProvider);
+      final permService = container.read(permissionServiceProvider);
+      final healthService = container.read(healthServiceProvider);
+      final criticalPerms = await permService
+          .areCriticalPermissionsGranted()
+          .timeout(const Duration(seconds: 3), onTimeout: () => false);
+      final healthPerms = await healthService.hasPermissionsProbe().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => false,
+      );
+      skipOnboarding = criticalPerms && healthPerms;
+      // Keep the DB flag in sync so other parts of the app can read it.
+      await db.setSetting('skip_onboarding', skipOnboarding ? 'true' : 'false');
 
-    // Schedule the two hardcoded daily pushes (08:30 + 20:00).
-    // Request permission first — on Android 13+ this is required at runtime.
-    final notifService = container.read(notificationServiceProvider);
-    await notifService.initialize();
-    await notifService.requestPermission();
+      // Schedule the two hardcoded daily pushes (08:30 + 20:00).
+      // Request permission first — on Android 13+ this is required at runtime.
+      final notifService = container.read(notificationServiceProvider);
+      await notifService.initialize();
+      await notifService.requestPermission();
 
-    // Request exact alarm permission (Android 12+) for reliable scheduling.
-    final permService2 = container.read(permissionServiceProvider);
-    await permService2.requestExactAlarmPermission().timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => false,
-    );
+      // Request exact alarm permission (Android 12+) for reliable scheduling.
+      final permService2 = container.read(permissionServiceProvider);
+      await permService2.requestExactAlarmPermission().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => false,
+      );
 
-    await notifService.scheduleDailyReminders();
+      await notifService.scheduleDailyReminders();
 
-    // Request battery optimization exemption so Android doesn't kill
-    // our scheduled notifications and background captures.
-    await permService2.requestBatteryOptimizationExemption().timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => false,
-    );
+      // Request battery optimization exemption so Android doesn't kill
+      // our scheduled notifications and background captures.
+      await permService2.requestBatteryOptimizationExemption().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => false,
+      );
 
-    // Start the persistent foreground service — keeps the app alive
-    // and shows an ongoing notification so the user stays connected.
-    final fgService = container.read(foregroundTaskServiceProvider);
-    fgService.init();
-    await fgService.start().timeout(
-      const Duration(seconds: 5),
-      onTimeout: () {
-        debugPrint('[main] Foreground service start timed out');
-      },
-    );
+      // Start the persistent foreground service — keeps the app alive
+      // and shows an ongoing notification so the user stays connected.
+      final fgService = container.read(foregroundTaskServiceProvider);
+      fgService.init();
+      await fgService.start().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('[main] Foreground service start timed out');
+        },
+      );
+    } else {
+      // Desktop: skip onboarding by default
+      skipOnboarding = true;
+    }
   } catch (e, st) {
     // Initialization errors must never prevent the app from launching.
     // In release builds an unhandled exception here leaves the native splash

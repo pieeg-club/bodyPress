@@ -185,6 +185,25 @@ class _LabHomeScreenState extends ConsumerState<LabHomeScreen> {
               // ── Top bar ───────────────────────────────────────────────
               Row(
                 children: [
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/');
+                      }
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: AppTheme.moonbeam,
+                      ),
+                    ),
+                  ),
                   Text(
                     'Lab',
                     style: AppTheme.geist(
