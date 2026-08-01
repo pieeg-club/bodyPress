@@ -1,5 +1,7 @@
 import '../ble_source_provider.dart';
 import 'ads1299_source.dart';
+import 'ironbci_source.dart';
+import 'octopus16_source.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Source registry initialisation
@@ -20,6 +22,9 @@ import 'ads1299_source.dart';
 void registerAllSources(BleSourceRegistry registry) {
   // ── Built-in sources ────────────────────────────────────────────────
   registry.register(Ads1299Source());
+  registry.register(IronBciSource()); // IronBCI-8 (ADS1299)
+  registry.register(IronBciSource(channels: 16)); // IronBCI-16 (dual ADS1299)
+  registry.register(Octopus16Source()); // Octopus 16 (ESP32-C3 + ADS131M08)
 
   // ── Community sources ───────────────────────────────────────────────
   // registry.register(MuseSSource());
