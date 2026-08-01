@@ -5,6 +5,9 @@ import '../../features/ai_settings/screens/ai_settings_screen.dart';
 import '../../features/capture/screens/capture_screen.dart';
 import '../../features/environment/screens/environment_screen.dart';
 import '../../features/journal/screens/journal_screen.dart';
+import '../../features/lab/screens/lab_home_screen.dart';
+import '../../features/lab/screens/session_comparison_screen.dart';
+import '../../features/lab/screens/session_detail_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/patterns/screens/patterns_screen.dart';
 import '../../features/sensors/screens/sensors_screen.dart';
@@ -12,6 +15,7 @@ import '../../features/shell/app_shell.dart';
 import '../../features/shell/debug_screen.dart';
 import '../../features/sources/screens/live_signal_screen.dart';
 import '../../features/sources/screens/source_browser_screen.dart';
+import '../models/capture_entry.dart';
 
 class AppRouter {
   static late final GoRouter router;
@@ -172,8 +176,7 @@ class AppRouter {
         // ── Signal sources ──────────────────────────────────────────────
         GoRoute(
           path: '/sources',
-          name: 'sources',
-          pageBuilder: (context, state) => CustomTransitionPage(
+          name: 'sources',          pageBuilder: (context, state) => CustomTransitionPage(
             key: state.pageKey,
             child: const SourceBrowserScreen(),
             transitionsBuilder:
@@ -201,6 +204,86 @@ class AppRouter {
             return CustomTransitionPage(
               key: state.pageKey,
               child: LiveSignalScreen(sourceId: sourceId),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                        child: child,
+                      ),
+            );
+          },
+        ),
+
+        // ── EEG Lab (isolated) ──────────────────────────────────────────
+        GoRoute(
+          path: '/lab',
+          name: 'lab-home',
+          pageBuilder: (context, state) => CustomTransitionPage(
+            key: state.pageKey,
+            child: const LabHomeScreen(),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                    SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(1, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
+          ),
+        ),
+        GoRoute(
+          path: '/lab/session/:id',
+          name: 'session-detail',
+          pageBuilder: (context, state) {
+            final entry = state.extra as CaptureEntry;
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: SessionDetailScreen(entry: entry),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) =>
+                      SlideTransition(
+                        position:
+                            Tween<Offset>(
+                              begin: const Offset(1, 0),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                        child: child,
+                      ),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/lab/compare',
+          name: 'session-compare',
+          pageBuilder: (context, state) {
+            final entries = state.extra as List<CaptureEntry>;
+            return CustomTransitionPage(
+              key: state.pageKey,
+              child: SessionComparisonScreen(
+                entryA: entries[0],
+                entryB: entries[1],
+              ),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) =>
                       SlideTransition(

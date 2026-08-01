@@ -627,6 +627,19 @@ class LocalDbService {
     return rows.map((row) => CaptureEntry.fromJson(row)).toList();
   }
 
+  /// Load all captures that contain a recorded signal session (EEG Lab),
+  /// ordered by timestamp descending (newest first).
+  Future<List<CaptureEntry>> loadSignalSessions({int? limit}) async {
+    final db = await _database;
+    final rows = await db.query(
+      _tableCaptures,
+      where: 'signal_session IS NOT NULL',
+      orderBy: 'timestamp DESC',
+      limit: limit,
+    );
+    return rows.map((row) => CaptureEntry.fromJson(row)).toList();
+  }
+
   /// Load all captures for a specific calendar date, ordered by timestamp ASC.
   ///
   /// Uses SQLite's `date()` function to match on the local calendar date

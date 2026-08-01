@@ -40,6 +40,12 @@ class AppTheme {
   /// Fog — muted secondary text.
   static const Color fog = Color(0xFF60758F);
 
+  /// Mist — tertiary text / hint.
+  static const Color mist = Color(0xFF445068);
+
+  /// Haze — faint / disabled text.
+  static const Color haze = Color(0xFF37425A);
+
   // Semantic
   static const Color seaGreen = Color(0xFF38C87E);
   static const Color amber = Color(0xFFFFBD5A);
@@ -55,6 +61,40 @@ class AppTheme {
   static const Color successColor = seaGreen;
   static const Color warningColor = amber;
   static const Color errorColor = crimson;
+
+  // ─── Radius ───────────────────────────────────────────────────────────────
+  static const double radiusSm = 4;
+  static const double radiusMd = 8;
+  static const double radiusLg = 12;
+  static const double radiusXl = 16;
+  static const double radiusFull = 9999;
+
+  // ─── Typography helpers (map to bodypress DM Sans styling) ────────────────
+  static TextStyle geist({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    double? letterSpacing,
+    Color? color,
+    double? height,
+  }) => GoogleFonts.dmSans(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    letterSpacing: letterSpacing,
+    color: color,
+    height: height,
+  );
+
+  static TextStyle geistMono({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    double? letterSpacing,
+    Color? color,
+  }) => GoogleFonts.jetBrainsMono(
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    letterSpacing: letterSpacing ?? -0.2,
+    color: color,
+  );
 
   // ─── Typography ───────────────────────────────────────────────────────────
   static TextTheme _buildTextTheme() {

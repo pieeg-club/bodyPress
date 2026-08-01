@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show IconData;
@@ -263,6 +264,11 @@ class BleSourceService {
   StreamSubscription<List<int>>? _notifySubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
 
+  // Demo mode — synthetic signal generation at the service level.
+  Timer? _demoTimer;
+  int _demoTick = 0;
+  bool _isDemoMode = false;
+
   final _devicesController =
       StreamController<List<BleSourceDevice>>.broadcast();
   final _signalController = StreamController<SignalSample>.broadcast();
@@ -283,6 +289,7 @@ class BleSourceService {
   BluetoothDevice? get connectedDevice => _connectedDevice;
   BleSourceProvider? get activeProvider => _activeProvider;
   bool get isStreaming => _state == BleSourceState.streaming;
+  bool get isDemoMode => _isDemoMode;
 
   void _setState(BleSourceState s) {
     _state = s;
@@ -417,6 +424,10 @@ class BleSourceService {
 
   /// Disconnect and reset state.
   Future<void> disconnect() async {
+    if (_isDemoMode) {
+      stopDemo();
+      return;
+    }
     if (_activeProvider != null && _connectedDevice != null) {
       try {
         await _activeProvider!.onDisconnecting(_connectedDevice!);
@@ -434,7 +445,52 @@ class BleSourceService {
     _setState(BleSourceState.idle);
   }
 
+  // ── Demo mode ───────────────────────────────────────────────────────
+
+  /// Start synthetic multi-channel signal generation at the service level.
+  ///
+  /// Emits realistic multi-frequency data on [signalStream] exactly like
+  /// real hardware would, so all downstream consumers (live signal screen,
+  /// Lab recording) receive the data transparently.
+  void startDemo({int channelCount = 8, double sampleRateHz = 250}) {
+    if (_isDemoMode) return;
+    _isDemoMode = true;
+    _demoTick = 0;
+    final rng = math.Random();
+
+    // ~60 Hz frame rate — fast enough for smooth visualisation.
+    _demoTimer = Timer.periodic(Duration(milliseconds: (1000 / 60).round()), (
+      _,
+    ) {
+      _demoTick++;
+      final t = _demoTick / sampleRateHz;
+      final channels = List<double>.generate(channelCount, (ch) {
+        final base = 10.0 * math.sin(2 * math.pi * (3 + ch * 0.7) * t);
+        final alpha = 8.0 *
+            math.sin(2 * math.pi * (10 + ch) * t) *
+            (ch.isEven ? 1 : 0.6);
+        final noise = (rng.nextDouble() - 0.5) * 4;
+        return double.parse((base + alpha + noise).toStringAsFixed(2));
+      });
+      if (!_signalController.isClosed) {
+        _signalController.add(
+          SignalSample(time: DateTime.now(), channels: channels),
+        );
+      }
+    });
+    _setState(BleSourceState.streaming);
+  }
+
+  /// Stop synthetic signal generation.
+  void stopDemo() {
+    _demoTimer?.cancel();
+    _demoTimer = null;
+    _isDemoMode = false;
+    _setState(BleSourceState.idle);
+  }
+
   void dispose() {
+    stopDemo();
     disconnect();
     _devicesController.close();
     _signalController.close();

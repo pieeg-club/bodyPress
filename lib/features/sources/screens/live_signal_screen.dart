@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/models/capture_entry.dart';
 import '../../../core/services/ble_source_provider.dart';
 import '../../../core/services/service_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -78,6 +79,9 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
     _service = ref.read(bleSourceServiceProvider);
     _provider = ref.read(bleSourceRegistryProvider).getById(widget.sourceId);
 
+    // Pick up current state (may already be streaming via Lab demo mode).
+    _state = _service.state;
+
     _stateSub = _service.stateStream.listen((s) {
       if (mounted) setState(() => _state = s);
     });
@@ -85,8 +89,8 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
       if (mounted) setState(() => _devices = d);
     });
 
-    // Auto-start scan if we have a provider.
-    if (_provider != null) {
+    // Auto-start scan only if not already streaming (e.g. demo mode).
+    if (_provider != null && _state != BleSourceState.streaming) {
       Future.microtask(() => _startScan());
     }
   }
@@ -140,12 +144,52 @@ class _LiveSignalScreenState extends ConsumerState<LiveSignalScreen> {
       _recordedSamples.add(s);
     });
     setState(() => _isRecording = true);
+    ref.read(isRecordingSignalProvider.notifier).state = true;
   }
 
   void _stopRecording() {
     _recordSub?.cancel();
     _recordSub = null;
-    setState(() => _isRecording = false);
+
+    final hadSamples = _recordedSamples.isNotEmpty && _provider != null;
+    if (hadSamples) {
+      final session = SignalSession(
+        sourceId: _provider!.id,
+        sourceName: _provider!.displayName,
+        deviceName: _service.connectedDevice?.platformName,
+        channels: _provider!.channelDescriptors,
+        samples: List.of(_recordedSamples),
+        sampleRateHz: _provider!.sampleRateHz,
+      );
+      _recordedSamples.clear();
+      _saveSession(session);
+    } else {
+      _recordedSamples.clear();
+    }
+
+    if (mounted) setState(() => _isRecording = false);
+    ref.read(isRecordingSignalProvider.notifier).state = false;
+  }
+
+  Future<void> _saveSession(SignalSession session) async {
+    final capture = CaptureEntry(
+      id: 'sig_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: DateTime.now(),
+      source: CaptureSource.manual,
+      signalSession: session,
+    );
+    try {
+      await ref.read(localDbServiceProvider).saveCapture(capture);
+      if (mounted) {
+        context.go('/lab/session/${capture.id}', extra: capture);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save session: $e')),
+        );
+      }
+    }
   }
 
   // ── Demo mode ───────────────────────────────────────────────────────

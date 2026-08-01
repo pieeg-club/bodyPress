@@ -128,6 +128,10 @@ final bleSourceServiceProvider = Provider<BleSourceService>((ref) {
   return svc;
 });
 
+/// Whether the EEG Lab is currently recording a live signal session.
+/// Toggled by the live signal screen; watched by the Lab home status dot.
+final isRecordingSignalProvider = StateProvider<bool>((_) => false);
+
 /// [NotificationService] ships its own internal singleton; the provider just
 /// surfaces it so it can be injected / overridden in tests.
 final notificationServiceProvider = Provider<NotificationService>(
