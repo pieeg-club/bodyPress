@@ -309,22 +309,35 @@ class BleSourceService {
 
     final found = <String, BleSourceDevice>{};
 
+    // Many boards (e.g. IronBCI / EAREEG / PiEEG_XR) advertise only their
+    // name and do NOT include the GATT service UUID in the advertisement
+    // packet. Filtering the scan by [withServices] would therefore hide them
+    // entirely. Mirror the working Web Bluetooth transport: when the provider
+    // declares advertised names, scan broadly and match by name; the service
+    // UUID is only needed after connecting. Fall back to the service-UUID scan
+    // filter only when no names are declared.
+    final hasNames = provider.advertisedNames.isNotEmpty;
+
     try {
       await FlutterBluePlus.startScan(
-        withServices: [Guid(provider.serviceUuid)],
+        withServices: hasNames ? const [] : [Guid(provider.serviceUuid)],
         timeout: Duration(seconds: timeoutSeconds),
       );
 
       final scanSub = FlutterBluePlus.scanResults.listen((results) {
         for (final r in results) {
-          // Optional name filter if the provider specifies advertised names.
-          if (provider.advertisedNames.isNotEmpty) {
-            final devName = r.device.platformName;
-            if (!provider.advertisedNames.any(
-              (n) => devName.toUpperCase().contains(n.toUpperCase()),
-            )) {
-              continue;
-            }
+          // Name filter when the provider specifies advertised names. Match
+          // against both the GATT platform name and the advertised local name
+          // (some firmware only exposes the name in the advertisement).
+          if (hasNames) {
+            final names = <String>[
+              r.device.platformName,
+              r.advertisementData.advName,
+            ].where((n) => n.isNotEmpty).map((n) => n.toUpperCase()).toList();
+            final matches = provider.advertisedNames.any(
+              (n) => names.any((dn) => dn.contains(n.toUpperCase())),
+            );
+            if (!matches) continue;
           }
           found[r.device.remoteId.str] = BleSourceDevice(
             scanResult: r,
@@ -466,9 +479,8 @@ class BleSourceService {
       final t = _demoTick / sampleRateHz;
       final channels = List<double>.generate(channelCount, (ch) {
         final base = 10.0 * math.sin(2 * math.pi * (3 + ch * 0.7) * t);
-        final alpha = 8.0 *
-            math.sin(2 * math.pi * (10 + ch) * t) *
-            (ch.isEven ? 1 : 0.6);
+        final alpha =
+            8.0 * math.sin(2 * math.pi * (10 + ch) * t) * (ch.isEven ? 1 : 0.6);
         final noise = (rng.nextDouble() - 0.5) * 4;
         return double.parse((base + alpha + noise).toStringAsFixed(2));
       });
